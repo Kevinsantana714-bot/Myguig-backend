@@ -14,22 +14,25 @@ function makeToken(user) {
 // POST /auth/register
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body || {};
+    const { name, email, password, role } = req.body || {};
     if (!name || !email || !password)
       return res.status(400).json({ error: 'name, email e password são obrigatórios.' });
     if (password.length < 6)
       return res.status(400).json({ error: 'Senha deve ter ao menos 6 caracteres.' });
+
+    const validRoles = ['musician', 'contractor'];
+    const userRole = validRoles.includes(role) ? role : 'musician';
 
     const { rows } = await pool.query('SELECT id FROM users WHERE email = $1', [email.trim().toLowerCase()]);
     if (rows.length) return res.status(400).json({ error: 'E-mail já cadastrado.' });
 
     const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
     const { rows: [created] } = await pool.query(
-      'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email',
-      [name.trim(), email.trim().toLowerCase(), password_hash]
+      'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role',
+      [name.trim(), email.trim().toLowerCase(), password_hash, userRole]
     );
 
-    res.status(201).json({ token: makeToken(created), user: { id: created.id, name: created.name, email: created.email } });
+    res.status(201).json({ token: makeToken(created), user: { id: created.id, name: created.name, email: created.email, role: created.role } });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -59,9 +62,47 @@ router.post('/logout', requireAuth, (_req, res) => res.json({ ok: true }));
 // GET /auth/me
 router.get('/me', requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT id, name, email FROM users WHERE id = $1', [req.userId]);
+    const { rows } = await pool.query(
+      'SELECT id, name, email, role, bio, estilos, instagram, cache_minimo, cidade FROM users WHERE id = $1',
+      [req.userId]
+    );
     if (!rows.length) return res.status(401).json({ error: 'Usuário não encontrado.' });
-    res.json({ user: rows[0] });
+    const u = rows[0];
+    res.json({ user: { ...u, estilos: JSON.parse(u.estilos || '[]') } });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PUT /auth/profile
+router.put('/profile', requireAuth, async (req, res) => {
+  try {
+    const { name, bio, estilos, instagram, cache_minimo, cidade } = req.body || {};
+
+    const { rows } = await pool.query(
+      `UPDATE users
+         SET name         = COALESCE($1, name),
+             bio          = COALESCE($2, bio),
+             estilos      = COALESCE($3, estilos),
+             instagram    = COALESCE($4, instagram),
+             cache_minimo = COALESCE($5, cache_minimo),
+             cidade       = COALESCE($6, cidade)
+         WHERE id = $7
+         RETURNING id, name, email, role, bio, estilos, instagram, cache_minimo, cidade`,
+      [
+        name      ? name.trim()                   : null,
+        bio       ? bio.trim()                    : null,
+        estilos !== undefined ? JSON.stringify(estilos) : null,
+        instagram ? instagram.trim()              : null,
+        cache_minimo != null ? parseFloat(cache_minimo) : null,
+        cidade    ? cidade.trim()                 : null,
+        req.userId,
+      ]
+    );
+
+    if (!rows.length) return res.status(404).json({ error: 'Usuário não encontrado.' });
+    const u = rows[0];
+    res.json({ user: { ...u, estilos: JSON.parse(u.estilos || '[]') } });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

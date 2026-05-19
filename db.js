@@ -51,6 +51,14 @@ async function init() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+  // Profile columns added for discovery feature
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role         VARCHAR(20)    NOT NULL DEFAULT 'musician'`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bio          TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS estilos      TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS instagram    VARCHAR(100)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS cache_minimo NUMERIC(10,2) NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS cidade       VARCHAR(100)`);
+
   console.log('DB inicializado — tabelas OK');
 }
 
@@ -62,12 +70,36 @@ async function seed() {
   const hash = await bcrypt.hash('12345678', 10);
 
   const { rows: [pedro] } = await pool.query(
-    'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id',
-    ['Pedro Alves', 'pedro@test.com', hash]
+    `INSERT INTO users (name, email, password_hash, role, bio, estilos, instagram, cache_minimo, cidade)
+     VALUES ($1,$2,$3,'musician','Violonista e cantor com 10 anos de experiência em eventos corporativos e casamentos.',
+             $4,'@pedroalvesmusica',1200,'São Paulo')
+     RETURNING id`,
+    ['Pedro Alves', 'pedro@test.com', hash, JSON.stringify(['MPB', 'Jazz', 'Bossa Nova'])]
   );
   const { rows: [silva] } = await pool.query(
-    'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id',
+    `INSERT INTO users (name, email, password_hash, role, cidade)
+     VALUES ($1,$2,$3,'contractor','São Paulo') RETURNING id`,
     ['Eventos Silva', 'silva@test.com', hash]
+  );
+
+  // Extra demo musicians
+  const { rows: [carla] } = await pool.query(
+    `INSERT INTO users (name, email, password_hash, role, bio, estilos, instagram, cache_minimo, cidade)
+     VALUES ($1,$2,$3,'musician','Cantora e multi-instrumentista especializada em Samba e Pagode. Atende festas, bares e eventos.',
+             $4,'@carlamusicarj',800,'Rio de Janeiro') RETURNING id`,
+    ['Carla Souza', 'carla@test.com', hash, JSON.stringify(['Samba', 'Pagode', 'Funk'])]
+  );
+  const { rows: [rafael] } = await pool.query(
+    `INSERT INTO users (name, email, password_hash, role, bio, estilos, instagram, cache_minimo, cidade)
+     VALUES ($1,$2,$3,'musician','Guitarrista com passagem por festivais nacionais. Repertório de Rock clássico e Blues.',
+             $4,'@rafaelrock',1500,'Belo Horizonte') RETURNING id`,
+    ['Rafael Lima', 'rafael@test.com', hash, JSON.stringify(['Rock', 'Blues', 'Indie'])]
+  );
+  const { rows: [ana] } = await pool.query(
+    `INSERT INTO users (name, email, password_hash, role, bio, estilos, instagram, cache_minimo, cidade)
+     VALUES ($1,$2,$3,'musician','Pianista clássica formada pela USP. Ideal para cerimônias, recitais e eventos de luxo.',
+             $4,'@anapiano',2000,'Curitiba') RETURNING id`,
+    ['Ana Ferreira', 'ana@test.com', hash, JSON.stringify(['Clássico', 'Erudito', 'Jazz'])]
   );
 
   const pedroId = pedro.id;

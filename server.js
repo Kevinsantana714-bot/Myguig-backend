@@ -6,13 +6,15 @@ const { init, seed }    = require('./db');
 const authRoutes         = require('./routes/auth');
 const proposalsRoutes    = require('./routes/proposals');
 const notificationsRoutes = require('./routes/notifications');
+const musiciansRoutes    = require('./routes/musicians');
+const sendProposalRoutes = require('./routes/send_proposal');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors({
   origin: true,
-  methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 }));
@@ -20,7 +22,9 @@ app.use(express.json());
 
 app.use('/auth',              authRoutes);
 app.use('/api/proposals',     proposalsRoutes);
+app.use('/api/proposals',     sendProposalRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/musicians',     musiciansRoutes);
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
 
